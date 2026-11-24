@@ -209,8 +209,10 @@ def main():
     ]
 
     X_local = all_X[[fraud_index, legitimate_index]].tocsr()
+    local_raw_features = validation.iloc[[fraud_index, legitimate_index]][FEATURES].copy()
     local_labels = ["highest_scored_validation_fraud", "highest_scored_validation_legitimate"]
     local_probabilities = all_probabilities[[fraud_index, legitimate_index]]
+    decision_threshold = float(benchmark["selected_threshold"])
 
     print("Validation sample rows:", len(global_sample))
     print("Validation fraud prevalence in global sample:", f"{y_global.mean():.6%}")
@@ -283,8 +285,20 @@ def main():
         local_cases.append(
             {
                 "case": label,
+                "validation_row_index": int(fraud_index if index == 0 else legitimate_index),
                 "actual_label": int(index == 0),
                 "predicted_probability": float(local_probabilities[index]),
+                "decision_threshold": decision_threshold,
+                "predicted_label_at_threshold": int(local_probabilities[index] >= decision_threshold),
+                "raw_feature_values": {
+                    key: (value.item() if hasattr(value, "item") else value)
+                    for key, value in local_raw_features.iloc[index].to_dict().items()
+                },
+                "shap_base_value": float(np.asarray(local_explanation.base_values[index]).reshape(-1)[0]),
+                "shap_contributions": {
+                    name: float(value)
+                    for name, value in zip(feature_names, local_explanation.values[index])
+                },
                 "waterfall_plot": str(plot_path.relative_to(ROOT)),
             }
         )
