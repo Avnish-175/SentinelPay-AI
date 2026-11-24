@@ -98,10 +98,16 @@ def main():
         verbose_feature_names_out=False,
     )
 
-    # Fit only the categorical encoder; numerical columns are passthrough.
-    category_frame = pd.DataFrame(
-        {"type": pd.Categorical(categories[0], categories=categories[0])}
-    )
+    # ColumnTransformer validates that every selected column exists at fit time.
+    # Include dummy numerical columns because they are passthrough and do not learn
+    # any statistics. The OneHotEncoder still uses the exact training categories.
+    category_frame = pd.DataFrame({
+        "type": pd.Categorical(categories[0], categories=categories[0]),
+        **{
+            feature: np.zeros(len(categories[0]), dtype=np.float32)
+            for feature in NUMERICAL_FEATURES
+        },
+    })
     encoder.fit(category_frame)
     feature_names = encoder.get_feature_names_out().tolist()
 
