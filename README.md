@@ -180,5 +180,44 @@ curl -X POST "http://localhost:8000/api/v1/predict" \
 
 ---
 
+## ☕ Running the Java Spring Boot Backend (Phase 2.2)
+
+### 1. Prerequisites
+- **Java 21**
+- **Maven 3.9+**
+- **PostgreSQL 14+** running with a `sentinelpay` database
+- **Python FastAPI ML Engine** running on `http://localhost:8000`
+
+### 2. Configure Environment Variables
+```powershell
+# Windows PowerShell
+$env:DB_URL="jdbc:postgresql://localhost:5432/sentinelpay"
+$env:DB_USERNAME="postgres"
+$env:DB_PASSWORD="your_password"
+$env:ML_ENGINE_URL="http://localhost:8000"
+```
+
+### 3. Start the Backend
+```bash
+cd backend
+mvn spring-boot:run
+```
+
+### 4. Submit a Transaction
+```bash
+curl -X POST "http://localhost:8080/api/v1/transactions" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "transaction_id": "tx_12345",
+       "type": "TRANSFER",
+       "amount": 250000.0,
+       "oldbalanceOrg": 260000.0,
+       "oldbalanceDest": 0.0,
+       "step": 545
+     }'
+```
+
+---
+
 ## 📄 License
 This project is open-source under the MIT License.
