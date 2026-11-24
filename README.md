@@ -1,112 +1,96 @@
 # SentinelPay-AI: Real-Time & High-Precision Fraud Detection System
 
-SentinelPay-AI is an end-to-end machine learning framework designed for real-time mobile money and financial transaction fraud detection. By combining behavioral transaction diagnostics, leak-free chronological splitting, domain-specific feature engineering, and robust tree ensembles, SentinelPay-AI minimizes false positives while capturing fraud patterns.
+SentinelPay-AI is an end-to-end machine learning framework for mobile-money transaction fraud detection. It combines chronological evaluation, transaction feature engineering, and tree-based models.
 
 ---
 
-## 📌 Project Overview
+## Project Overview
 
-Financial fraud detection presents significant machine learning challenges:
-- **Severe Class Imbalance**: Fraudulent transactions account for a minuscule fraction of all transfers (< 0.15%).
-- **Temporal Drift**: Transaction patterns change over time, rendering naive cross-validation prone to data leakage.
-- **Account Discrepancies**: Subtle mismatches between initial balances, transaction amounts, and ending balances often indicate fraudulent drains.
+Fraud detection is challenging because of severe class imbalance, temporal drift, and evolving transaction behavior. SentinelPay-AI uses time-ordered train, validation, and test splits to approximate deployment on future transactions.
 
-SentinelPay-AI addresses these challenges through a disciplined pipeline from raw data diagnostics to calibrated model deployment.
-
----
-
-## 📊 Pipeline Architecture & Workflow
-
-The repository is organized sequentially across data auditing, feature engineering, and modeling stages:
+## Pipeline Architecture
 
 ```
 SentinelPay-AI/
 ├── data/
-│   ├── artifacts/preprocessing/     # Saved feature names & preprocessor objects
-│   └── processed/                   # Aggregated statistics and diagnostic plots
-├── models/
-│   └── baseline/                    # Serialized baseline models (Logistic Regression, RF)
+│   ├── artifacts/preprocessing/
+│   └── processed/
+├── models/baseline/
 ├── notebooks/
-│   ├── 01_dataset_overview.py          # Data ingestion and structural summary
-│   ├── 02_exploratory_analysis.ipynb   # Imbalance, transaction volume & class analysis
-│   ├── 03_balance_diagnostics.py       # Origin/dest account balance integrity checks
-│   ├── 04_feature_engineering.py       # Behavioral ratios, temporal tags & flag indicators
-│   ├── 05_validate_features.py         # Null audits, zero-variance checks & assertions
-│   ├── 06_feature_leakage_audit.py     # Target leakage and time-travel verification
-│   ├── 07_chronological_split.py       # Leakage-free train/val/test temporal splitting
-│   ├── 08_preprocessing.py             # Encoders, scalers & tree/linear pipelines
-│   ├── 09_baseline_model_training.py   # Logistic Regression benchmark
-│   ├── 10_random_forest.py             # Subsampled balanced Random Forest classifier
-│   ├── 11_random_forest_diagnostics.py # Calibration curve, PR curves & threshold tuning
-│   └── 12_fraud_pattern_analysis.py    # False positive/negative profiling & rules
+│   ├── 04_feature_engineering.py
+│   ├── 06_feature_leakage_audit.py
+│   ├── 07_chronological_split.py
+│   ├── 08_preprocessing.py
+│   ├── 09_baseline_model_training.py
+│   ├── 10_random_forest.py
+│   ├── 11_random_forest_diagnostics.py
+│   ├── 12_fraud_pattern_analysis.py
+│   ├── 13_final_test_evaluation.py
+│   └── 14_random_forest_feature_ablation.py
 └── reports/
-    ├── logistic_regression_metrics.json    # LR performance benchmark
-    ├── random_forest_metrics.json          # Random Forest metrics across thresholds
-    └── random_forest_feature_importance.csv# Top feature importances
 ```
 
----
+## Engineering Highlights
 
-## 🔬 Key Engineering Highlights
+1. **Chronological evaluation:** Train, validation, and test sets are separated by transaction step. Thresholds are selected on validation and held fixed for final test evaluation.
+2. **Pre-transaction features:** The current model feature set uses transaction type, amount, origin/destination starting balances, and temporal features. Post-transaction balances and balance-change fields are excluded from model inputs.
+3. **Leakage and feature ablation checks:** Candidate features are audited and important engineered features are removed in controlled experiments to measure their effect.
+4. **Imbalanced classification:** PR-AUC, precision, recall, F1, and confusion matrices are reported alongside ROC-AUC.
 
-1. **Chronological Splitting**: Rather than random K-Fold splits, SentinelPay-AI employs strict time-ordered splits (`step`-based) to simulate real production deployment and prevent lookahead bias.
-2. **Behavioral Feature Engineering**:
-   - `amount_to_origin_balance_ratio`: Detects full account liquidations.
-   - `amount_to_destination_balance_ratio`: Identifies sudden massive influxes into dormant or newly created accounts.
-   - Temporal decomposition: Cyclical transaction hour extraction.
-   - Balance error flags: Discrepancy checks identifying balance falsification.
-3. **Threshold Optimization & Diagnostics**:
-   - Beyond raw ROC-AUC, evaluation is anchored on **Precision-Recall AUC (PR-AUC)**, cost-sensitive matrices, and optimal F1 thresholds.
+## Benchmark Performance
 
----
+The following results are from the chronological test split (89,466 transactions; 1,252 fraud cases; fraud prevalence 1.3994%). Classification thresholds were selected on the validation split and were not tuned on test.
 
-## 📈 Benchmark Performance
+| Model / feature set | ROC-AUC | PR-AUC | Fixed threshold | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| Logistic Regression | 0.960261 | 0.447946 | 0.914918 | 0.518929 | 0.448882 | 0.481370 |
+| Random Forest, both ratios included | 1.000000 | 0.999997 | 0.367459 | 1.000000 | 0.998403 | 0.999201 |
+| Random Forest, without origin ratio | 0.995031 | 0.876126 | 0.777307 | 0.925177 | 0.730831 | 0.816600 |
+| Random Forest, without either ratio | 0.995096 | 0.882607 | 0.693158 | 0.885482 | 0.784345 | 0.831851 |
 
-Evaluated on held-out temporal test splits:
+### Interpretation and limitations
 
-| Model | ROC-AUC | PR-AUC | Optimal Threshold | Precision | Recall | F1-Score |
-|---|---|---|---|---|---|---|
-| **Logistic Regression (Baseline)** | 0.9676 | 0.3543 | 0.9997 | 0.8872 | 0.7712 | 0.8251 |
-| **Balanced Random Forest** | **1.0000** | **1.0000** | 0.3675 | **1.0000** | **1.0000** | **1.0000** |
+The full-feature Random Forest achieves near-perfect performance on this PaySim test split, but the ablation results show that the origin-balance ratio contributes substantially to that score. Removing both ratio features reduces PR-AUC to 0.882607 while ROC-AUC remains 0.995096. This indicates that the model retains strong ranking ability without the ratios, while also showing that the original near-perfect result is strongly dependent on a PaySim-specific signal.
 
-### Top Predictive Features:
-1. `amount_to_origin_balance_ratio` (~41.3% importance)
-2. `oldbalanceOrg` (~14.9% importance)
-3. `amount` (~11.6% importance)
-4. `type_PAYMENT` / `type_TRANSFER`
+The ratio features are calculated from pre-transaction values and are not automatically temporal leakage. However, high performance on a synthetic dataset is not evidence of equivalent performance on real payment traffic. The no-ratio result is included as a conservative robustness comparison, not as proof of production readiness.
 
----
+## Getting Started
 
-## 🚀 Getting Started
-
-### 1. Prerequisites & Environment
-Clone the repository and set up a Python virtual environment:
+### 1. Environment
 
 ```bash
 git clone https://github.com/Avnish-175/SentinelPay-AI.git
 cd SentinelPay-AI
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+# Windows: .venv\\Scripts\\activate
+# macOS/Linux: source .venv/bin/activate
 pip install numpy pandas scikit-learn joblib matplotlib seaborn
 ```
 
-### 2. Dataset Setup
-Download the [Paysim Synthetic Financial Datasets for Fraud Detection](https://www.kaggle.com/datasets/ealaxi/paysim1) and place `PS_20174392719_1491204439457_log.csv` into:
+### 2. Dataset
+
+Download the PaySim Synthetic Financial Datasets for Fraud Detection dataset and place the CSV at:
+
 ```
 data/raw/PS_20174392719_1491204439457_log.csv
 ```
 
-### 3. Running the Pipeline
-Execute the pipeline scripts sequentially from the `notebooks/` directory:
+### 3. Run the pipeline
+
+Run from the repository root:
 
 ```bash
 python notebooks/04_feature_engineering.py
 python notebooks/07_chronological_split.py
 python notebooks/08_preprocessing.py
+python notebooks/09_baseline_model_training.py
 python notebooks/10_random_forest.py
+python notebooks/13_final_test_evaluation.py
+python notebooks/14_random_forest_feature_ablation.py
 ```
 
----
+The raw dataset and generated CSV/model artifacts are not committed; create them locally by following the steps above.
 
-## 📄 License
+## License
+
 This project is open-source under the MIT License.
