@@ -1,0 +1,95 @@
+{
+    "validation_row_index": 62103,
+    "predicted_probability": 0.9995900988578796,
+    "base_value_logit": 0.31426700949668884,
+    "sum_shap_margin": 7.799186706542969,
+    "sigmoid_margin_prob": 0.9995900988578796,
+    "raw_record": {
+        "type": "TRANSFER",
+        "amount": 656256.76,
+        "oldbalanceOrg": 669431.0,
+        "oldbalanceDest": 0.0,
+        "transaction_day": 22,
+        "transaction_hour": 16,
+        "hour_sin": -0.8660254037844385,
+        "hour_cos": -0.5000000000000004,
+        "origin_is_zero": 0,
+        "destination_is_zero": 1,
+        "amount_to_origin_balance_ratio": 0.9803202421160657,
+        "amount_to_destination_balance_ratio": 0.0,
+        "step": 545,
+        "isFraud": 0
+    },
+    "shap_contributions": [
+        {
+            "feature": "oldbalanceOrg",
+            "transformed_value": 669431.0,
+            "shap_value": 2.397787094116211
+        },
+        {
+            "feature": "amount",
+            "transformed_value": 656256.75,
+            "shap_value": 1.5838656425476074
+        },
+        {
+            "feature": "transaction_day",
+            "transformed_value": 22.0,
+            "shap_value": 1.4886727333068848
+        },
+        {
+            "feature": "oldbalanceDest",
+            "transformed_value": 0.0,
+            "shap_value": 1.4430100917816162
+        },
+        {
+            "feature": "type_CASH_OUT",
+            "transformed_value": 0.0,
+            "shap_value": -1.047473669052124
+        },
+        {
+            "feature": "type_TRANSFER",
+            "transformed_value": 1.0,
+            "shap_value": 0.8358707427978516
+        },
+        {
+            "feature": "type_CASH_IN",
+            "transformed_value": 0.0,
+            "shap_value": 0.3483622372150421
+        },
+        {
+            "feature": "type_PAYMENT",
+            "transformed_value": 0.0,
+            "shap_value": 0.29557132720947266
+        },
+        {
+            "feature": "destination_is_zero",
+            "transformed_value": 1.0,
+            "shap_value": 0.2768118381500244
+        },
+        {
+            "feature": "hour_sin",
+            "transformed_value": -0.8660253882408142,
+            "shap_value": -0.07008248567581177
+        },
+        {
+            "feature": "transaction_hour",
+            "transformed_value": 16.0,
+            "shap_value": -0.06447166949510574
+        },
+        {
+            "feature": "hour_cos",
+            "transformed_value": -0.5,
+            "shap_value": -0.04281298443675041
+        },
+        {
+            "feature": "origin_is_zero",
+            "transformed_value": 0.0,
+            "shap_value": 0.03840278089046478
+        },
+        {
+            "feature": "type_DEBIT",
+            "transformed_value": 0.0,
+            "shap_value": 0.0014065204886719584
+        }
+    ]
+}
