@@ -1,0 +1,73 @@
+[
+    {
+        "variant": "without_origin_ratio",
+        "features": [
+            "type",
+            "amount",
+            "oldbalanceOrg",
+            "oldbalanceDest",
+            "transaction_day",
+            "transaction_hour",
+            "hour_sin",
+            "hour_cos",
+            "origin_is_zero",
+            "destination_is_zero",
+            "amount_to_destination_balance_ratio"
+        ],
+        "threshold_selected_on": "validation",
+        "selected_threshold": 0.7773073995690072,
+        "validation_pr_auc": 0.8562064862512285,
+        "test_rows": 89466,
+        "test_fraud_cases": 1252,
+        "test_pr_auc": 0.8761262300447766,
+        "test_roc_auc": 0.9950314923605397,
+        "test_precision": 0.9251769464105156,
+        "test_recall": 0.7308306709265175,
+        "test_f1": 0.8165997322623829,
+        "test_confusion_matrix": [
+            [
+                88140,
+                74
+            ],
+            [
+                337,
+                915
+            ]
+        ]
+    },
+    {
+        "variant": "without_any_ratio",
+        "features": [
+            "type",
+            "amount",
+            "oldbalanceOrg",
+            "oldbalanceDest",
+            "transaction_day",
+            "transaction_hour",
+            "hour_sin",
+            "hour_cos",
+            "origin_is_zero",
+            "destination_is_zero"
+        ],
+        "threshold_selected_on": "validation",
+        "selected_threshold": 0.6931579349372546,
+        "validation_pr_auc": 0.8641006825084081,
+        "test_rows": 89466,
+        "test_fraud_cases": 1252,
+        "test_pr_auc": 0.8826067517323497,
+        "test_roc_auc": 0.9950959458812438,
+        "test_precision": 0.8854824165915239,
+        "test_recall": 0.7843450479233227,
+        "test_f1": 0.8318509106310885,
+        "test_confusion_matrix": [
+            [
+                88087,
+                127
+            ],
+            [
+                270,
+                982
+            ]
+        ]
+    }
+]

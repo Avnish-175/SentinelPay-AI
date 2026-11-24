@@ -1,0 +1,100 @@
+{
+    "model_path": "models\\baseline\\xgboost_no_ratio.json",
+    "explanation_data": "validation split only",
+    "global_sample_size": 2000,
+    "random_state": 42,
+    "feature_names": [
+        "type_CASH_IN",
+        "type_CASH_OUT",
+        "type_DEBIT",
+        "type_PAYMENT",
+        "type_TRANSFER",
+        "amount",
+        "oldbalanceOrg",
+        "oldbalanceDest",
+        "transaction_day",
+        "transaction_hour",
+        "hour_sin",
+        "hour_cos",
+        "origin_is_zero",
+        "destination_is_zero"
+    ],
+    "global_mean_absolute_shap": [
+        {
+            "feature": "oldbalanceOrg",
+            "mean_abs_shap": 3.592849016189575
+        },
+        {
+            "feature": "type_PAYMENT",
+            "mean_abs_shap": 3.2608957290649414
+        },
+        {
+            "feature": "amount",
+            "mean_abs_shap": 3.1553187370300293
+        },
+        {
+            "feature": "type_CASH_IN",
+            "mean_abs_shap": 2.572932720184326
+        },
+        {
+            "feature": "oldbalanceDest",
+            "mean_abs_shap": 1.7301299571990967
+        },
+        {
+            "feature": "origin_is_zero",
+            "mean_abs_shap": 0.49377259612083435
+        },
+        {
+            "feature": "transaction_day",
+            "mean_abs_shap": 0.4080463945865631
+        },
+        {
+            "feature": "transaction_hour",
+            "mean_abs_shap": 0.29447367787361145
+        },
+        {
+            "feature": "type_TRANSFER",
+            "mean_abs_shap": 0.21088626980781555
+        },
+        {
+            "feature": "type_DEBIT",
+            "mean_abs_shap": 0.1712763011455536
+        },
+        {
+            "feature": "hour_sin",
+            "mean_abs_shap": 0.16772735118865967
+        },
+        {
+            "feature": "hour_cos",
+            "mean_abs_shap": 0.1522827446460724
+        },
+        {
+            "feature": "type_CASH_OUT",
+            "mean_abs_shap": 0.13944384455680847
+        },
+        {
+            "feature": "destination_is_zero",
+            "mean_abs_shap": 0.1094304546713829
+        }
+    ],
+    "local_examples": [
+        {
+            "case": "highest_scored_validation_fraud",
+            "actual_label": 1,
+            "predicted_probability": 0.020864982157945633,
+            "waterfall_plot": "reports\\figures\\shap\\highest_scored_validation_fraud_waterfall.png"
+        },
+        {
+            "case": "highest_scored_validation_legitimate",
+            "actual_label": 0,
+            "predicted_probability": 0.003995692823082209,
+            "waterfall_plot": "reports\\figures\\shap\\highest_scored_validation_legitimate_waterfall.png"
+        }
+    ],
+    "artifacts": {
+        "feature_importance_json": "reports\\xgboost_shap_feature_importance.json",
+        "global_bar_plot": "reports\\figures\\shap\\xgboost_shap_global_bar.png",
+        "beeswarm_plot": "reports\\figures\\shap\\xgboost_shap_beeswarm.png"
+    },
+    "note": "SHAP explains model behaviour; it does not establish causality or prove that a feature is free from dataset-specific bias."
+}

@@ -1,0 +1,98 @@
+{
+    "model": "XGBoost",
+    "feature_set": "no_ratio",
+    "features": [
+        "type",
+        "amount",
+        "oldbalanceOrg",
+        "oldbalanceDest",
+        "transaction_day",
+        "transaction_hour",
+        "hour_sin",
+        "hour_cos",
+        "origin_is_zero",
+        "destination_is_zero"
+    ],
+    "transformed_feature_names": [
+        "type_CASH_IN",
+        "type_CASH_OUT",
+        "type_DEBIT",
+        "type_PAYMENT",
+        "type_TRANSFER",
+        "amount",
+        "oldbalanceOrg",
+        "oldbalanceDest",
+        "transaction_day",
+        "transaction_hour",
+        "hour_sin",
+        "hour_cos",
+        "origin_is_zero",
+        "destination_is_zero"
+    ],
+    "hyperparameters": {
+        "n_estimators": 500,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "min_child_weight": 5,
+        "reg_lambda": 1.0,
+        "objective": "binary:logistic",
+        "eval_metric": "aucpr",
+        "tree_method": "hist",
+        "random_state": 42,
+        "n_jobs": -1,
+        "scale_pos_weight": 1051.0683272790175
+    },
+    "training_seconds": 119.97,
+    "training_class_counts": {
+        "legitimate": 6076226,
+        "fraud": 5781
+    },
+    "scale_pos_weight": 1051.0683272790175,
+    "threshold_selected_on": "validation",
+    "selected_threshold": 0.9928211569786072,
+    "validation": {
+        "pr_auc": 0.9574794567976291,
+        "roc_auc": 0.9996335380462602,
+        "threshold": 0.9928211569786072,
+        "precision": 0.9360518999073216,
+        "recall": 0.8559322033898306,
+        "f1": 0.8942009738822487,
+        "confusion_matrix_tn_fp_fn_tp": [
+            [
+                189898,
+                69
+            ],
+            [
+                170,
+                1010
+            ]
+        ]
+    },
+    "test": {
+        "rows": 89466,
+        "fraud_cases": 1252,
+        "fraud_prevalence": 0.01399414302640109,
+        "pr_auc": 0.967916285069717,
+        "roc_auc": 0.9994068754961342,
+        "threshold": 0.9928211569786072,
+        "precision": 0.9584487534626038,
+        "recall": 0.829073482428115,
+        "f1": 0.8890792291220557,
+        "confusion_matrix_tn_fp_fn_tp": [
+            [
+                88169,
+                45
+            ],
+            [
+                214,
+                1038
+            ]
+        ]
+    },
+    "xgboost_version": "3.4.1",
+    "sklearn_version": "1.9.1",
+    "numpy_version": "2.5.4",
+    "pandas_version": "3.1.0"
+}

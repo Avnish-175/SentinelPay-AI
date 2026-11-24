@@ -1,0 +1,33 @@
+{
+    "model": "Random Forest",
+    "evaluation_split": "chronological_test",
+    "threshold": 0.3674593028011828,
+    "threshold_selected_on": "validation",
+    "test_rows": 89466,
+    "test_fraud_cases": 1252,
+    "test_fraud_prevalence": 0.01399414302640109,
+    "pr_auc_average_precision": 0.999996818342316,
+    "roc_auc": 0.9999999547281586,
+    "precision": 1.0,
+    "recall": 0.9984025559105432,
+    "f1_score": 0.9992006394884093,
+    "confusion_matrix_labels": [
+        "legitimate",
+        "fraud"
+    ],
+    "confusion_matrix": [
+        [
+            88214,
+            0
+        ],
+        [
+            2,
+            1250
+        ]
+    ],
+    "versions": {
+        "sklearn": "1.9.1",
+        "numpy": "2.5.4",
+        "pandas": "3.1.0"
+    }
+}
