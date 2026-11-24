@@ -219,5 +219,23 @@ curl -X POST "http://localhost:8080/api/v1/transactions" \
 
 ---
 
+## 🖥️ Running the React Frontend (Phase 2.4)
+
+### 1. Prerequisites
+- **Node.js 18+** and **npm**
+- **Spring Boot Backend** running on `http://localhost:8081` (or set `VITE_API_BASE_URL`)
+
+### 2. Configure & Start
+```bash
+cd frontend
+cp .env.example .env   # Optional: edit VITE_API_BASE_URL (defaults to http://localhost:8081)
+npm install
+npm run dev
+```
+
+The dashboard will be available at `http://localhost:5173`.
+
+---
+
 ## 📄 License
 This project is open-source under the MIT License.
