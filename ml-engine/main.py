@@ -26,11 +26,14 @@ def startup_event():
     global predictor, policy_engine, startup_error
     try:
         predictor = SentinelPayPredictor()
-        # Initialize default risk policy config matching ML threshold
+        # Decouple enterprise blocking policy from model threshold:
+        # Transactions above challenge_threshold (0.70) are challenged (MFA);
+        # Transactions >= 0.85 undergo mandatory manual review;
+        # Only transactions >= block_threshold (0.999900) are blocked outright.
         policy_config = RiskPolicyConfig(
             challenge_threshold=0.700000,
-            block_threshold=predictor.decision_threshold,
             manual_review_threshold=0.850000,
+            block_threshold=0.999900,
         )
         policy_engine = RiskPolicyEngine(config=policy_config)
         startup_error = None
@@ -42,7 +45,8 @@ def startup_event():
 
 class RiskPolicyOverride(BaseModel):
     challenge_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, example=0.65)
-    block_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, example=0.95)
+    manual_review_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, example=0.80)
+    block_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, example=0.999)
 
 
 class TransactionRequest(BaseModel):
@@ -70,6 +74,7 @@ class TransactionRequest(BaseModel):
 class PolicyEvaluation(BaseModel):
     action: RiskAction = Field(..., example="CHALLENGE")
     challenge_threshold: float
+    manual_review_threshold: Optional[float]
     block_threshold: float
     step_up_mfa_required: bool
     manual_review_required: bool
@@ -131,8 +136,9 @@ def health_check():
         "model_threshold": predictor.decision_threshold,
         "features_loaded": len(predictor.expected_feature_names),
         "policy_engine_active": True,
-        "default_block_threshold": policy_engine.config.block_threshold,
         "default_challenge_threshold": policy_engine.config.challenge_threshold,
+        "default_manual_review_threshold": policy_engine.config.manual_review_threshold,
+        "default_block_threshold": policy_engine.config.block_threshold,
     }
 
 
@@ -147,7 +153,7 @@ def evaluate_transaction(tx: TransactionRequest):
         )
 
     try:
-        # Step 1: Pure ML Model Scoring
+        # Step 1: Pure ML Model Scoring (Model threshold & score untouched)
         ml_result = predictor.predict_proba(
             transaction_type=tx.type,
             amount=tx.amount,
@@ -161,16 +167,33 @@ def evaluate_transaction(tx: TransactionRequest):
         # Step 2: Enterprise Risk Policy Evaluation (Separated from model)
         active_policy = policy_engine
         if tx.policy_override is not None:
-            override_cfg = RiskPolicyConfig(
-                challenge_threshold=tx.policy_override.challenge_threshold
+            c_thresh = (
+                tx.policy_override.challenge_threshold
                 if tx.policy_override.challenge_threshold is not None
-                else policy_engine.config.challenge_threshold,
-                block_threshold=tx.policy_override.block_threshold
-                if tx.policy_override.block_threshold is not None
-                else policy_engine.config.block_threshold,
-                manual_review_threshold=policy_engine.config.manual_review_threshold,
+                else policy_engine.config.challenge_threshold
             )
-            active_policy = RiskPolicyEngine(config=override_cfg)
+            m_thresh = (
+                tx.policy_override.manual_review_threshold
+                if tx.policy_override.manual_review_threshold is not None
+                else policy_engine.config.manual_review_threshold
+            )
+            b_thresh = (
+                tx.policy_override.block_threshold
+                if tx.policy_override.block_threshold is not None
+                else policy_engine.config.block_threshold
+            )
+            try:
+                override_cfg = RiskPolicyConfig(
+                    challenge_threshold=c_thresh,
+                    manual_review_threshold=m_thresh,
+                    block_threshold=b_thresh,
+                )
+                active_policy = RiskPolicyEngine(config=override_cfg)
+            except ValueError as cfg_err:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid policy override: {cfg_err}",
+                )
 
         policy_res = active_policy.evaluate(
             fraud_probability=ml_result["fraud_probability"],
@@ -189,6 +212,7 @@ def evaluate_transaction(tx: TransactionRequest):
             policy=PolicyEvaluation(
                 action=policy_res["action"],
                 challenge_threshold=policy_res["challenge_threshold"],
+                manual_review_threshold=policy_res["manual_review_threshold"],
                 block_threshold=policy_res["block_threshold"],
                 step_up_mfa_required=policy_res["step_up_mfa_required"],
                 manual_review_required=policy_res["manual_review_required"],
@@ -197,6 +221,8 @@ def evaluate_transaction(tx: TransactionRequest):
             latency_ms=latency_ms,
         )
 
+    except HTTPException:
+        raise
     except (InputValidationError, ValueError) as val_err:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

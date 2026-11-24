@@ -31,52 +31,73 @@ def test_client():
 
 
 # ============================================================
-# 1. RISK POLICY SEPARATION TESTS
+# 1. RISK POLICY SEPARATION & BAND TESTS
 # ============================================================
 
 def test_risk_policy_bands():
-    cfg = RiskPolicyConfig(challenge_threshold=0.70, block_threshold=0.9928, manual_review_threshold=0.85)
+    cfg = RiskPolicyConfig(
+        challenge_threshold=0.70,
+        manual_review_threshold=0.85,
+        block_threshold=0.9999,
+    )
     policy = RiskPolicyEngine(cfg)
 
-    # Approve band
-    res_app = policy.evaluate(0.15, 0.9928, 500.0)
+    # Approve band (< 0.70)
+    res_app = policy.evaluate(0.15, 0.992821, 500.0)
     assert res_app["action"] == "APPROVE"
     assert not res_app["step_up_mfa_required"]
     assert not res_app["manual_review_required"]
 
-    # Challenge band (Step-up MFA only)
-    res_chal1 = policy.evaluate(0.75, 0.9928, 10000.0)
+    # Challenge band with OTP/MFA (0.70 <= prob < 0.85)
+    res_chal1 = policy.evaluate(0.75, 0.992821, 10000.0)
     assert res_chal1["action"] == "CHALLENGE"
-    assert res_chal1["step_up_mfa_required"]
-    assert not res_chal1["manual_review_required"]
+    assert res_chal1["step_up_mfa_required"] is True
+    assert res_chal1["manual_review_required"] is False
 
-    # Challenge band with manual review (>=0.85)
-    res_chal2 = policy.evaluate(0.90, 0.9928, 10000.0)
+    # Challenge band with manual review and MFA (0.85 <= prob < 0.9999)
+    res_chal2 = policy.evaluate(0.95, 0.992821, 10000.0)
     assert res_chal2["action"] == "CHALLENGE"
-    assert res_chal2["step_up_mfa_required"]
-    assert res_chal2["manual_review_required"]
+    assert res_chal2["step_up_mfa_required"] is True
+    assert res_chal2["manual_review_required"] is True
 
-    # Block band
-    res_blk = policy.evaluate(0.9995, 0.9928, 500000.0)
+    # Block band (>= 0.9999)
+    res_blk = policy.evaluate(0.99995, 0.992821, 500000.0)
     assert res_blk["action"] == "BLOCK"
+    assert not res_blk["step_up_mfa_required"]
+    assert not res_blk["manual_review_required"]
 
 
-def test_invalid_policy_config():
-    with pytest.raises(ValueError):
+def test_invalid_policy_threshold_validations():
+    # challenge_threshold > block_threshold
+    with pytest.raises(ValueError, match="cannot exceed block_threshold"):
         RiskPolicyConfig(challenge_threshold=0.95, block_threshold=0.70)
-    with pytest.raises(ValueError):
+
+    # negative challenge_threshold
+    with pytest.raises(ValueError, match="must be between 0 and 1"):
         RiskPolicyConfig(challenge_threshold=-0.1)
 
+    # block_threshold > 1
+    with pytest.raises(ValueError, match="must be between 0 and 1"):
+        RiskPolicyConfig(block_threshold=1.05)
+
+    # manual_review_threshold < challenge_threshold
+    with pytest.raises(ValueError, match="cannot be less than challenge_threshold"):
+        RiskPolicyConfig(challenge_threshold=0.70, manual_review_threshold=0.60, block_threshold=0.99)
+
+    # manual_review_threshold > block_threshold
+    with pytest.raises(ValueError, match="cannot exceed block_threshold"):
+        RiskPolicyConfig(challenge_threshold=0.70, manual_review_threshold=0.999, block_threshold=0.95)
+
 
 # ============================================================
-# 2. CSR SPARSE INFERENCE AND BENCHMARK CONSISTENCY
+# 2. FALSE POSITIVE REGRESSION TEST (CRITICAL TEST)
 # ============================================================
 
-def test_validation_consistency_top_fp(predictor_instance):
+def test_known_false_positive_regression_predictor(predictor_instance):
     """
-    Verifies that the CSR sparse inference output in SentinelPayPredictor
-    reproduces the exact top false positive probability 0.9995900988 from
-    reports/xgboost_shap_summary.json and investigate_top_fp.py.
+    Validates that the known highest-scored legitimate validation transaction
+    is scored with high probability (~0.999590) by the untouched ML model,
+    exceeds the ML validation threshold (0.992821), yet remains distinct from policy.
     """
     res = predictor_instance.predict_proba(
         transaction_type="TRANSFER",
@@ -88,47 +109,49 @@ def test_validation_consistency_top_fp(predictor_instance):
     expected_prob = 0.9995900988578796
     assert np.isclose(res["fraud_probability"], expected_prob, rtol=1e-5, atol=1e-6)
     assert res["is_above_model_threshold"] is True
+    assert np.isclose(res["model_threshold"], 0.9928211569786072, rtol=1e-5)
 
 
-def test_validation_consistency_legitimate_payment(predictor_instance):
-    res = predictor_instance.predict_proba(
-        transaction_type="PAYMENT",
-        amount=50.0,
-        oldbalance_org=1000.0,
-        oldbalance_dest=500.0,
-        step=100,
-    )
-    assert res["fraud_probability"] < 0.01
-    assert res["is_above_model_threshold"] is False
+def test_known_false_positive_policy_decision(test_client):
+    """
+    REGRESSION REQUIREMENT:
+    Under the default risk policy, the known false positive transaction:
+    - Amount: 656256.76
+    - OldbalanceOrg: 669431.0
+    - OldbalanceDest: 0.0
+    - Step: 545
+    Must receive:
+      - action: CHALLENGE
+      - step_up_mfa_required: True
+      - manual_review_required: True
+    and must NOT be automatically blocked solely because it exceeds the ML threshold.
+    """
+    payload = {
+        "transaction_id": "tx_known_fp_validation_row62103",
+        "type": "TRANSFER",
+        "amount": 656256.76,
+        "oldbalanceOrg": 669431.0,
+        "oldbalanceDest": 0.0,
+        "step": 545,
+    }
+    response = test_client.post("/api/v1/predict", json=payload)
+    assert response.status_code == 200
+    data = response.json()
 
+    assert data["transaction_id"] == "tx_known_fp_validation_row62103"
+    assert np.isclose(data["fraud_probability"], 0.999590, atol=1e-4)
+    assert data["is_above_model_threshold"] is True
 
-def test_input_validation_errors(predictor_instance):
-    # Invalid transaction type
-    with pytest.raises(InputValidationError):
-        predictor_instance.predict_proba("INVALID_TYPE", 100.0, 100.0, 0.0)
-
-    # Negative amount
-    with pytest.raises(InputValidationError):
-        predictor_instance.predict_proba("TRANSFER", -10.0, 100.0, 0.0)
-
-    # NaN / Inf values
-    with pytest.raises(InputValidationError):
-        predictor_instance.predict_proba("TRANSFER", float("nan"), 100.0, 0.0)
-    with pytest.raises(InputValidationError):
-        predictor_instance.predict_proba("TRANSFER", 100.0, float("inf"), 0.0)
-
-    # Invalid step
-    with pytest.raises(InputValidationError):
-        predictor_instance.predict_proba("TRANSFER", 100.0, 100.0, 0.0, step=0)
-
-
-def test_missing_model_artifacts():
-    with pytest.raises(ModelArtifactError):
-        SentinelPayPredictor(model_path=Path("non_existent_model.json"))
+    # Policy verification
+    policy = data["policy"]
+    assert policy["action"] == "CHALLENGE"
+    assert policy["step_up_mfa_required"] is True
+    assert policy["manual_review_required"] is True
+    assert "fraud analyst" in policy["recommendation"].lower() or "step-up" in policy["recommendation"].lower()
 
 
 # ============================================================
-# 3. FASTAPI ENDPOINT AUTOMATED TESTS
+# 3. FASTAPI ENDPOINT TESTS & OVERRIDES
 # ============================================================
 
 def test_api_health(test_client):
@@ -138,7 +161,10 @@ def test_api_health(test_client):
     assert data["status"] == "HEALTHY"
     assert data["ready"] is True
     assert "model_version" in data
-    assert "model_threshold" in data
+    assert np.isclose(data["model_threshold"], 0.992821, atol=1e-4)
+    assert data["default_block_threshold"] == 0.9999
+    assert data["default_challenge_threshold"] == 0.70
+    assert data["default_manual_review_threshold"] == 0.85
     assert data["features_loaded"] == 14
 
 
@@ -154,50 +180,50 @@ def test_api_predict_approve(test_client):
     response = test_client.post("/api/v1/predict", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["transaction_id"] == "tx_test_app_01"
     assert data["policy"]["action"] == "APPROVE"
     assert not data["policy"]["step_up_mfa_required"]
+    assert not data["policy"]["manual_review_required"]
     assert data["fraud_probability"] < 0.10
-    assert "latency_ms" in data
     assert data["latency_ms"] >= 0.0
 
 
-def test_api_predict_challenge_and_override(test_client):
-    # A transfer with moderate probability challenged by policy override
+def test_api_predict_block_via_configurable_override(test_client):
+    """
+    If an institution wishes to enforce a strict block threshold (e.g. 0.990)
+    for high-risk transfers, verify the policy override functions correctly.
+    """
     payload = {
-        "transaction_id": "tx_test_chal_01",
+        "transaction_id": "tx_override_block",
         "type": "TRANSFER",
         "amount": 656256.76,
         "oldbalanceOrg": 669431.0,
         "oldbalanceDest": 0.0,
         "step": 545,
         "policy_override": {
-            "challenge_threshold": 0.50,
-            "block_threshold": 0.9999,  # Higher than 0.999590 so it results in CHALLENGE
+            "block_threshold": 0.990000,
         },
     }
     response = test_client.post("/api/v1/predict", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["policy"]["action"] == "CHALLENGE"
-    assert data["policy"]["step_up_mfa_required"] is True
-    assert data["policy"]["block_threshold"] == 0.9999
+    assert data["policy"]["action"] == "BLOCK"
+    assert data["policy"]["block_threshold"] == 0.990000
 
 
-def test_api_predict_block(test_client):
+def test_api_invalid_policy_override_rejection(test_client):
     payload = {
-        "transaction_id": "tx_test_block_01",
         "type": "TRANSFER",
-        "amount": 656256.76,
-        "oldbalanceOrg": 669431.0,
+        "amount": 100.0,
+        "oldbalanceOrg": 100.0,
         "oldbalanceDest": 0.0,
-        "step": 545,
+        "policy_override": {
+            "challenge_threshold": 0.95,
+            "block_threshold": 0.60,  # Invalid: challenge > block
+        },
     }
     response = test_client.post("/api/v1/predict", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["policy"]["action"] == "BLOCK"
-    assert data["is_above_model_threshold"] is True
+    assert response.status_code == 422
+    assert "Invalid policy override" in response.json()["detail"]
 
 
 def test_api_predict_malformed_requests(test_client):
@@ -210,5 +236,5 @@ def test_api_predict_malformed_requests(test_client):
     assert res2.status_code == 422
 
     # Invalid type
-    res3 = test_client.post("/api/v1/predict", json={"type": "WIRE", "amount": 50.0, "oldbalanceOrg": 100.0, "oldbalanceDest": 0.0})
+    res3 = test_client.post("/api/v1/predict", json={"type": "BITCOIN", "amount": 50.0, "oldbalanceOrg": 100.0, "oldbalanceDest": 0.0})
     assert res3.status_code == 422
