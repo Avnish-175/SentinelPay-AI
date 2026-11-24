@@ -1,0 +1,134 @@
+{
+    "model": "Random Forest",
+    "hyperparameters": {
+        "n_estimators": 100,
+        "max_depth": 16,
+        "min_samples_split": 10,
+        "min_samples_leaf": 10,
+        "max_features": "sqrt",
+        "max_samples": 0.25,
+        "class_weight": "balanced_subsample",
+        "bootstrap": true,
+        "random_state": 42,
+        "n_jobs": -1
+    },
+    "training_time_seconds": 197.69,
+    "prediction_time_seconds": 0.26,
+    "trees_trained": 100,
+    "pr_auc_average_precision": 1.0,
+    "roc_auc": 1.0,
+    "default_threshold_metrics": {
+        "threshold": 0.5,
+        "precision": 1.0,
+        "recall": 0.997457627118644,
+        "f1_score": 0.9987271955876114,
+        "confusion_matrix": [
+            [
+                189967,
+                0
+            ],
+            [
+                3,
+                1177
+            ]
+        ]
+    },
+    "best_f1_threshold_metrics": {
+        "threshold": 0.3674593028011828,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "confusion_matrix": [
+            [
+                189967,
+                0
+            ],
+            [
+                0,
+                1180
+            ]
+        ]
+    },
+    "selected_threshold": 0.3674593028011828,
+    "threshold_selected_on": "validation",
+    "features": [
+        "type",
+        "amount",
+        "oldbalanceOrg",
+        "oldbalanceDest",
+        "transaction_day",
+        "transaction_hour",
+        "hour_sin",
+        "hour_cos",
+        "origin_is_zero",
+        "destination_is_zero",
+        "amount_to_origin_balance_ratio",
+        "amount_to_destination_balance_ratio"
+    ],
+    "transformed_feature_count": 16,
+    "transformed_feature_names": [
+        "type_CASH_IN",
+        "type_CASH_OUT",
+        "type_DEBIT",
+        "type_PAYMENT",
+        "type_TRANSFER",
+        "amount",
+        "oldbalanceOrg",
+        "oldbalanceDest",
+        "transaction_day",
+        "transaction_hour",
+        "hour_sin",
+        "hour_cos",
+        "origin_is_zero",
+        "destination_is_zero",
+        "amount_to_origin_balance_ratio",
+        "amount_to_destination_balance_ratio"
+    ],
+    "top_10_features": [
+        {
+            "feature": "amount_to_origin_balance_ratio",
+            "importance": 0.413148031377488
+        },
+        {
+            "feature": "oldbalanceOrg",
+            "importance": 0.14859400652034593
+        },
+        {
+            "feature": "amount",
+            "importance": 0.11564009833671972
+        },
+        {
+            "feature": "type_PAYMENT",
+            "importance": 0.05711253052553676
+        },
+        {
+            "feature": "type_TRANSFER",
+            "importance": 0.048215794032397834
+        },
+        {
+            "feature": "type_CASH_IN",
+            "importance": 0.04255532471903155
+        },
+        {
+            "feature": "transaction_hour",
+            "importance": 0.03373897547744534
+        },
+        {
+            "feature": "type_CASH_OUT",
+            "importance": 0.03223452998169167
+        },
+        {
+            "feature": "amount_to_destination_balance_ratio",
+            "importance": 0.030551030968932573
+        },
+        {
+            "feature": "origin_is_zero",
+            "importance": 0.02750054681544447
+        }
+    ],
+    "versions": {
+        "sklearn": "1.9.1",
+        "numpy": "2.5.4",
+        "pandas": "3.1.0"
+    }
+}

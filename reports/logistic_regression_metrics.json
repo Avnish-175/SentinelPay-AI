@@ -1,0 +1,88 @@
+{
+    "model": "Logistic Regression",
+    "hyperparameters": {
+        "solver": "saga",
+        "class_weight": "balanced",
+        "max_iter": 1000,
+        "tol": 0.001,
+        "random_state": 42
+    },
+    "training_time_seconds": 818.04,
+    "prediction_time_seconds": 0.01,
+    "iterations": 156,
+    "converged": true,
+    "pr_auc_average_precision": 0.354300608516108,
+    "roc_auc": 0.9676085757267565,
+    "default_threshold_metrics": {
+        "threshold": 0.5,
+        "precision": 0.0356534866540327,
+        "recall": 0.940677966101695,
+        "f1_score": 0.06870299879305543,
+        "confusion_matrix": [
+            [
+                159944,
+                30023
+            ],
+            [
+                70,
+                1110
+            ]
+        ]
+    },
+    "best_f1_threshold_metrics": {
+        "threshold": 0.9149180054664612,
+        "precision": 0.4055841293166789,
+        "recall": 0.46779661016949153,
+        "f1_score": 0.4344746162927981,
+        "confusion_matrix": [
+            [
+                189158,
+                809
+            ],
+            [
+                628,
+                552
+            ]
+        ]
+    },
+    "selected_threshold": 0.9149180054664612,
+    "threshold_selected_on": "validation",
+    "features": [
+        "type",
+        "amount",
+        "oldbalanceOrg",
+        "oldbalanceDest",
+        "transaction_day",
+        "transaction_hour",
+        "hour_sin",
+        "hour_cos",
+        "origin_is_zero",
+        "destination_is_zero",
+        "amount_to_origin_balance_ratio",
+        "amount_to_destination_balance_ratio"
+    ],
+    "transformed_feature_count": 16,
+    "transformed_feature_names": [
+        "type_CASH_IN",
+        "type_CASH_OUT",
+        "type_DEBIT",
+        "type_PAYMENT",
+        "type_TRANSFER",
+        "amount",
+        "oldbalanceOrg",
+        "oldbalanceDest",
+        "transaction_day",
+        "transaction_hour",
+        "hour_sin",
+        "hour_cos",
+        "origin_is_zero",
+        "destination_is_zero",
+        "amount_to_origin_balance_ratio",
+        "amount_to_destination_balance_ratio"
+    ],
+    "versions": {
+        "sklearn": "1.9.1",
+        "numpy": "2.5.4",
+        "pandas": "3.1.0"
+    }
+}

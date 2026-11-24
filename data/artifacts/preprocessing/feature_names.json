@@ -1,0 +1,38 @@
+{
+    "logistic_regression": [
+        "type_CASH_IN",
+        "type_CASH_OUT",
+        "type_DEBIT",
+        "type_PAYMENT",
+        "type_TRANSFER",
+        "amount",
+        "oldbalanceOrg",
+        "oldbalanceDest",
+        "transaction_day",
+        "transaction_hour",
+        "hour_sin",
+        "hour_cos",
+        "origin_is_zero",
+        "destination_is_zero",
+        "amount_to_origin_balance_ratio",
+        "amount_to_destination_balance_ratio"
+    ],
+    "tree_models": [
+        "type_CASH_IN",
+        "type_CASH_OUT",
+        "type_DEBIT",
+        "type_PAYMENT",
+        "type_TRANSFER",
+        "amount",
+        "oldbalanceOrg",
+        "oldbalanceDest",
+        "transaction_day",
+        "transaction_hour",
+        "hour_sin",
+        "hour_cos",
+        "origin_is_zero",
+        "destination_is_zero",
+        "amount_to_origin_balance_ratio",
+        "amount_to_destination_balance_ratio"
+    ]
+}
