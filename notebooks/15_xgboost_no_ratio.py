@@ -37,6 +37,7 @@ TEST_PATH = SPLIT_DIR / "test.csv"
 
 MODEL_PATH = MODEL_DIR / "xgboost_no_ratio.json"
 METRICS_PATH = REPORT_DIR / "xgboost_no_ratio_metrics.json"
+PREPROCESSOR_CONFIG_PATH = MODEL_DIR / "xgboost_no_ratio_preprocessing.json"
 
 TARGET = "isFraud"
 CATEGORICAL_FEATURES = ["type"]
@@ -191,6 +192,20 @@ print("\nFitting categorical encoder on training data only...")
 encoder.fit(X_train_raw)
 
 feature_names = encoder.get_feature_names_out().tolist()
+categorical_categories = (
+    encoder.named_transformers_["categorical"].categories_[0].tolist()
+)
+with open(PREPROCESSOR_CONFIG_PATH, "w", encoding="utf-8") as handle:
+    json.dump(
+        {
+            "categorical_categories": categorical_categories,
+            "numerical_features": NUMERICAL_FEATURES,
+            "transformed_feature_names": feature_names,
+        },
+        handle,
+        indent=4,
+    )
+
 X_train = to_float32_csr(encoder.transform(X_train_raw))
 del X_train_raw
 gc.collect()
@@ -290,6 +305,7 @@ report = {
     "model": "XGBoost",
     "feature_set": "no_ratio",
     "features": FEATURES,
+    "preprocessing_config": str(PREPROCESSOR_CONFIG_PATH.relative_to(ROOT)),
     "transformed_feature_names": feature_names,
     "hyperparameters": model_parameters,
     "training_seconds": round(training_seconds, 2),
