@@ -8,6 +8,8 @@ import xgboost as xgb
 import shap
 import matplotlib.pyplot as plt
 
+from sklearn.metrics import average_precision_score, roc_auc_score, precision_recall_curve
+
 from scipy import sparse
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
@@ -25,7 +27,8 @@ REPORT_DIR = ROOT / "reports"
 FIGURE_DIR = REPORT_DIR / "figures" / "shap"
 
 MODEL_PATH = MODEL_DIR / "xgboost_no_ratio.json"
-TRAIN_PATH = SPLIT_DIR / "train.csv"
+PREPROCESSOR_CONFIG_PATH = MODEL_DIR / "xgboost_no_ratio_preprocessing.json"
+METRICS_PATH = REPORT_DIR / "xgboost_no_ratio_metrics.json"
 VALIDATION_PATH = SPLIT_DIR / "validation.csv"
 
 TARGET = "isFraud"
@@ -62,22 +65,22 @@ def main():
     print("XGBoost:", xgb.__version__)
     print("SHAP:", shap.__version__)
 
-    for path in (MODEL_PATH, TRAIN_PATH, VALIDATION_PATH):
+    for path in (MODEL_PATH, PREPROCESSOR_CONFIG_PATH, METRICS_PATH, VALIDATION_PATH):
         if not path.exists():
             raise FileNotFoundError(f"Required file not found: {path}")
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Recreate the exact preprocessing column order used by notebook 15.
-    print("\nReading training categories...")
-    train_types = pd.read_csv(
-        TRAIN_PATH, usecols=["type"], dtype={"type": "category"}
-    )["type"]
+    # Load the exact category order and feature layout saved by notebook 15.
+    print("\\nLoading the exact training preprocessing configuration...")
+    with open(PREPROCESSOR_CONFIG_PATH, "r", encoding="utf-8") as handle:
+        preprocessing_config = json.load(handle)
 
-    categories = [sorted(train_types.dropna().astype(str).unique().tolist())]
-    del train_types
-    gc.collect()
+    categories = [preprocessing_config["categorical_categories"]]
+    expected_feature_names = preprocessing_config["transformed_feature_names"]
+    if preprocessing_config["numerical_features"] != NUMERICAL_FEATURES:
+        raise ValueError("Numerical feature order differs from the training configuration.")
 
     encoder = ColumnTransformer(
         transformers=[
@@ -98,9 +101,7 @@ def main():
         verbose_feature_names_out=False,
     )
 
-    # ColumnTransformer validates that every selected column exists at fit time.
-    # Include dummy numerical columns because they are passthrough and do not learn
-    # any statistics. The OneHotEncoder still uses the exact training categories.
+    # Fit only to establish the configured transformer structure; categories are fixed.
     category_frame = pd.DataFrame({
         "type": pd.Categorical(categories[0], categories=categories[0]),
         **{
@@ -110,6 +111,8 @@ def main():
     })
     encoder.fit(category_frame)
     feature_names = encoder.get_feature_names_out().tolist()
+    if feature_names != expected_feature_names:
+        raise ValueError("Reconstructed feature order does not match training metadata.")
 
     model = xgb.XGBClassifier()
     model.load_model(MODEL_PATH)
@@ -150,6 +153,39 @@ def main():
     all_X = to_dense_float32(encoder.transform(validation[FEATURES]))
     all_probabilities = model.predict_proba(all_X)[:, 1]
     all_y = validation[TARGET].to_numpy(dtype=np.int8)
+
+    # Verify that the loaded model and reconstructed inputs reproduce notebook 15.
+    with open(METRICS_PATH, "r", encoding="utf-8") as handle:
+        benchmark = json.load(handle)
+
+    reproduced_pr_auc = float(average_precision_score(all_y, all_probabilities))
+    reproduced_roc_auc = float(roc_auc_score(all_y, all_probabilities))
+    precision, recall, thresholds = precision_recall_curve(all_y, all_probabilities)
+    f1_denominator = precision[:-1] + recall[:-1]
+    f1_values = np.divide(
+        2 * precision[:-1] * recall[:-1],
+        f1_denominator,
+        out=np.zeros_like(f1_denominator),
+        where=f1_denominator > 0,
+    )
+    reproduced_threshold = float(thresholds[int(np.argmax(f1_values))])
+
+    expected_validation = benchmark["validation"]
+    checks = {
+        "PR-AUC": (reproduced_pr_auc, float(expected_validation["pr_auc"])),
+        "ROC-AUC": (reproduced_roc_auc, float(expected_validation["roc_auc"])),
+        "F1 threshold": (reproduced_threshold, float(benchmark["selected_threshold"])),
+    }
+    print("\\n========== BENCHMARK CONSISTENCY CHECK ==========")
+    for name, (actual, expected) in checks.items():
+        print(f"{name}: reproduced={actual:.9f} | benchmark={expected:.9f}")
+        if not np.isclose(actual, expected, rtol=1e-5, atol=1e-7):
+            raise ValueError(
+                f"{name} mismatch. The model, validation data, or preprocessing "
+                "does not match the benchmark report. Do not interpret SHAP outputs."
+            )
+    print("PASS: SHAP predictions reproduce the benchmark validation results.")
+
 
     fraud_indices = np.flatnonzero(all_y == 1)
     legitimate_indices = np.flatnonzero(all_y == 0)
