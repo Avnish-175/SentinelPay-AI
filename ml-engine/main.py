@@ -56,7 +56,7 @@ class TransactionRequest(BaseModel):
     oldbalanceOrg: float = Field(..., ge=0.0, example=150000.0)
     oldbalanceDest: float = Field(..., ge=0.0, example=0.0)
     step: Optional[int] = Field(None, ge=1, example=545)
-    transaction_day: Optional[int] = Field(None, ge=1, le=31, example=22)
+    transaction_day: Optional[int] = Field(None, ge=0, le=30, example=22)
     transaction_hour: Optional[int] = Field(None, ge=0, le=23, example=16)
     policy_override: Optional[RiskPolicyOverride] = None
 

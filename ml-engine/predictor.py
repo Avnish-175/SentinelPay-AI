@@ -176,8 +176,8 @@ class SentinelPayPredictor:
                 raise InputValidationError(f"Field 'step' must be an integer >= 1 (got {step})")
 
         if transaction_day is not None:
-            if not isinstance(transaction_day, int) or not (1 <= transaction_day <= 31):
-                raise InputValidationError(f"Field 'transaction_day' must be an integer between 1 and 31 (got {transaction_day})")
+            if not isinstance(transaction_day, int) or not (0 <= transaction_day <= 30):
+                raise InputValidationError(f"Field 'transaction_day' must be an integer between 0 and 30 (got {transaction_day})")
 
         if transaction_hour is not None:
             if not isinstance(transaction_hour, int) or not (0 <= transaction_hour <= 23):
@@ -204,12 +204,13 @@ class SentinelPayPredictor:
             transaction_hour,
         )
 
-        if step is not None and transaction_day is None:
-            day = (step - 1) // 24 + 1
-            hour = (step - 1) % 24
-        else:
-            day = transaction_day if transaction_day is not None else 1
-            hour = transaction_hour if transaction_hour is not None else 12
+        # Derive day and hour from step if supplied, matching notebooks/04_feature_engineering.py
+        derived_day = (step - 1) // 24 if step is not None else 0
+        derived_hour = (step - 1) % 24 if step is not None else 12
+
+        # Explicit transaction_day or transaction_hour overrides only its respective derived value
+        day = transaction_day if transaction_day is not None else derived_day
+        hour = transaction_hour if transaction_hour is not None else derived_hour
 
         hour_sin = np.sin(2 * np.pi * hour / 24.0)
         hour_cos = np.cos(2 * np.pi * hour / 24.0)

@@ -90,7 +90,41 @@ def test_invalid_policy_threshold_validations():
 
 
 # ============================================================
-# 2. FALSE POSITIVE REGRESSION TEST (CRITICAL TEST)
+# 2. FEATURE PARITY & DAY/HOUR INDEPENDENT OVERRIDES
+# ============================================================
+
+def test_day_hour_derivation_parity(predictor_instance):
+    # step=545 -> (545 - 1) // 24 = 22, (545 - 1) % 24 = 16
+    csr_derived = predictor_instance.transform("TRANSFER", 1000.0, 1000.0, 0.0, step=545)
+    
+    # Explicit matching day=22, hour=16 without step
+    csr_explicit = predictor_instance.transform("TRANSFER", 1000.0, 1000.0, 0.0, transaction_day=22, transaction_hour=16)
+    np.testing.assert_allclose(csr_derived.toarray(), csr_explicit.toarray())
+
+    # Partial override: step=545 (day=22, hour=16) with explicit transaction_hour=10
+    csr_partial = predictor_instance.transform("TRANSFER", 1000.0, 1000.0, 0.0, step=545, transaction_hour=10)
+    # Check that day is 22 and hour is 10
+    features = predictor_instance.expected_feature_names
+    day_idx = features.index("transaction_day")
+    hour_idx = features.index("transaction_hour")
+    assert csr_partial[0, day_idx] == 22.0
+    assert csr_partial[0, hour_idx] == 10.0
+
+
+def test_transaction_day_range_validation(predictor_instance):
+    # Valid range is 0 to 30
+    predictor_instance.transform("PAYMENT", 10.0, 100.0, 0.0, transaction_day=0)
+    predictor_instance.transform("PAYMENT", 10.0, 100.0, 0.0, transaction_day=30)
+
+    with pytest.raises(InputValidationError):
+        predictor_instance.transform("PAYMENT", 10.0, 100.0, 0.0, transaction_day=-1)
+
+    with pytest.raises(InputValidationError):
+        predictor_instance.transform("PAYMENT", 10.0, 100.0, 0.0, transaction_day=31)
+
+
+# ============================================================
+# 3. FALSE POSITIVE REGRESSION TEST (CRITICAL TEST)
 # ============================================================
 
 def test_known_false_positive_regression_predictor(predictor_instance):
@@ -151,7 +185,7 @@ def test_known_false_positive_policy_decision(test_client):
 
 
 # ============================================================
-# 3. FASTAPI ENDPOINT TESTS & OVERRIDES
+# 4. FASTAPI ENDPOINT TESTS & OVERRIDES
 # ============================================================
 
 def test_api_health(test_client):

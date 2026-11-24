@@ -154,12 +154,29 @@ curl -X POST "http://localhost:8000/api/v1/predict" \
 {
   "transaction_id": "tx_12345",
   "fraud_probability": 0.998412,
-  "decision_threshold": 0.992821,
-  "is_fraud": true,
-  "action": "BLOCK",
-  "model_version": "xgboost_no_ratio_v1"
+  "model_threshold": 0.992821,
+  "is_above_model_threshold": true,
+  "model_version": "xgboost_no_ratio_v1",
+  "policy": {
+    "action": "CHALLENGE",
+    "challenge_threshold": 0.700000,
+    "manual_review_threshold": 0.850000,
+    "block_threshold": 0.999900,
+    "step_up_mfa_required": true,
+    "manual_review_required": true,
+    "recommendation": "Route to fraud analyst queue and prompt user for Step-Up Biometric/MFA authentication."
+  },
+  "latency_ms": 3.842
 }
 ```
+
+### 4. Input Features & Derivation Specification
+- `step` (int $\ge 1$): Hourly simulation timestep. When provided, automatically derives:
+  - `transaction_day = (step - 1) // 24` (range: $0$ to $30$)
+  - `transaction_hour = (step - 1) % 24` (range: $0$ to $23$)
+- `transaction_day` (int $0 \le d \le 30$) and `transaction_hour` (int $0 \le h \le 23$): Explicit inputs override only their respective derived values.
+- Pre-transaction balances `oldbalanceOrg` and `oldbalanceDest` are preserved without post-transaction leakage.
+- Configurable risk policy decoupled from model score (`APPROVE` / `CHALLENGE` / `BLOCK`).
 
 ---
 
