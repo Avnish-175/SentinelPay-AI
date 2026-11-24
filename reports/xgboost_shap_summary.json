@@ -21,73 +21,73 @@
     ],
     "global_mean_absolute_shap": [
         {
+            "feature": "amount",
+            "mean_abs_shap": 3.674940347671509
+        },
+        {
             "feature": "oldbalanceOrg",
-            "mean_abs_shap": 3.592849016189575
+            "mean_abs_shap": 3.204080820083618
         },
         {
             "feature": "type_PAYMENT",
-            "mean_abs_shap": 3.2608957290649414
-        },
-        {
-            "feature": "amount",
-            "mean_abs_shap": 3.1553187370300293
-        },
-        {
-            "feature": "type_CASH_IN",
-            "mean_abs_shap": 2.572932720184326
-        },
-        {
-            "feature": "oldbalanceDest",
-            "mean_abs_shap": 1.7301299571990967
-        },
-        {
-            "feature": "origin_is_zero",
-            "mean_abs_shap": 0.49377259612083435
-        },
-        {
-            "feature": "transaction_day",
-            "mean_abs_shap": 0.4080463945865631
-        },
-        {
-            "feature": "transaction_hour",
-            "mean_abs_shap": 0.29447367787361145
-        },
-        {
-            "feature": "type_TRANSFER",
-            "mean_abs_shap": 0.21088626980781555
-        },
-        {
-            "feature": "type_DEBIT",
-            "mean_abs_shap": 0.1712763011455536
-        },
-        {
-            "feature": "hour_sin",
-            "mean_abs_shap": 0.16772735118865967
-        },
-        {
-            "feature": "hour_cos",
-            "mean_abs_shap": 0.1522827446460724
+            "mean_abs_shap": 2.0412757396698
         },
         {
             "feature": "type_CASH_OUT",
-            "mean_abs_shap": 0.13944384455680847
+            "mean_abs_shap": 1.1712441444396973
+        },
+        {
+            "feature": "type_CASH_IN",
+            "mean_abs_shap": 1.052178144454956
+        },
+        {
+            "feature": "oldbalanceDest",
+            "mean_abs_shap": 0.8999989628791809
+        },
+        {
+            "feature": "transaction_day",
+            "mean_abs_shap": 0.6376979351043701
+        },
+        {
+            "feature": "transaction_hour",
+            "mean_abs_shap": 0.3100014626979828
+        },
+        {
+            "feature": "origin_is_zero",
+            "mean_abs_shap": 0.28802549839019775
+        },
+        {
+            "feature": "type_TRANSFER",
+            "mean_abs_shap": 0.2372407764196396
+        },
+        {
+            "feature": "hour_sin",
+            "mean_abs_shap": 0.18033744394779205
+        },
+        {
+            "feature": "hour_cos",
+            "mean_abs_shap": 0.1629549115896225
         },
         {
             "feature": "destination_is_zero",
-            "mean_abs_shap": 0.1094304546713829
+            "mean_abs_shap": 0.11473426967859268
+        },
+        {
+            "feature": "type_DEBIT",
+            "mean_abs_shap": 0.006960875820368528
         }
     ],
     "local_examples": [
         {
             "case": "highest_scored_validation_fraud",
             "actual_label": 1,
-            "predicted_probability": 0.020864982157945633,
+            "predicted_probability": 0.9999967813491821,
             "waterfall_plot": "reports\\figures\\shap\\highest_scored_validation_fraud_waterfall.png"
         },
         {
             "case": "highest_scored_validation_legitimate",
             "actual_label": 0,
-            "predicted_probability": 0.003995692823082209,
+            "predicted_probability": 0.9995900988578796,
             "waterfall_plot": "reports\\figures\\shap\\highest_scored_validation_legitimate_waterfall.png"
         }
     ],

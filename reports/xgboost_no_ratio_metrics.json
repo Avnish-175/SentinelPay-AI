@@ -13,6 +13,7 @@
         "origin_is_zero",
         "destination_is_zero"
     ],
+    "preprocessing_config": "models\\baseline\\xgboost_no_ratio_preprocessing.json",
     "transformed_feature_names": [
         "type_CASH_IN",
         "type_CASH_OUT",
@@ -44,7 +45,7 @@
         "n_jobs": -1,
         "scale_pos_weight": 1051.0683272790175
     },
-    "training_seconds": 119.72,
+    "training_seconds": 120.16,
     "training_class_counts": {
         "legitimate": 6076226,
         "fraud": 5781
