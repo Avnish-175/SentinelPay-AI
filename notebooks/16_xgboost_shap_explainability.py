@@ -54,10 +54,10 @@ DTYPES = {"type": "category", TARGET: "int8"}
 DTYPES.update({name: "float32" for name in NUMERICAL_FEATURES})
 
 
-def to_dense_float32(matrix):
+def to_float32_csr(matrix):
     if sparse.issparse(matrix):
-        return matrix.toarray().astype(np.float32, copy=False)
-    return np.asarray(matrix, dtype=np.float32)
+        return matrix.tocsr().astype(np.float32)
+    return sparse.csr_matrix(np.asarray(matrix, dtype=np.float32))
 
 
 def main():
@@ -142,7 +142,7 @@ def main():
         n=sample_n, random_state=RANDOM_STATE
     ).copy()
 
-    X_global = to_dense_float32(
+    X_global = to_float32_csr(
         encoder.transform(global_sample[FEATURES])
     )
     y_global = global_sample[TARGET].to_numpy(dtype=np.int8)
@@ -150,7 +150,18 @@ def main():
     # Pick one correctly labelled fraud and one legitimate transaction
     # with the highest model scores for local case explanations.
     print("\nGenerating predictions for local examples...")
-    all_X = to_dense_float32(encoder.transform(validation[FEATURES]))
+    # Preserve the CSR sparse representation used during benchmark training
+    # and validation. Densifying changes implicit sparse zeros into explicit
+    # numeric zeros, which can change XGBoost's missing-value routing.
+    all_X = to_float32_csr(encoder.transform(validation[FEATURES]))
+    print(
+        "Validation matrix:",
+        all_X.shape,
+        "| format:",
+        all_X.getformat(),
+        "| dtype:",
+        all_X.dtype,
+    )
     all_probabilities = model.predict_proba(all_X)[:, 1]
     all_y = validation[TARGET].to_numpy(dtype=np.int8)
 
@@ -197,7 +208,7 @@ def main():
         np.argmax(all_probabilities[legitimate_indices])
     ]
 
-    X_local = all_X[[fraud_index, legitimate_index]]
+    X_local = all_X[[fraud_index, legitimate_index]].tocsr()
     local_labels = ["highest_scored_validation_fraud", "highest_scored_validation_legitimate"]
     local_probabilities = all_probabilities[[fraud_index, legitimate_index]]
 
