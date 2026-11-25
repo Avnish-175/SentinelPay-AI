@@ -1,165 +1,255 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal EnableExtensions EnableDelayedExpansion
 
-title SentinelPay AI Launcher
-echo ===============================================================================
-echo                     SENTINELPAY AI - FULL STACK LAUNCHER
-echo ===============================================================================
+:: ============================================================================
+:: SentinelPay AI - Unified Windows Startup Script
+:: ============================================================================
+
+set "ROOT_DIR=%~dp0"
+if "%ROOT_DIR:~-1%"=="\" set "ROOT_DIR=%ROOT_DIR:~0,-1%"
+
+set "ML_DIR=%ROOT_DIR%\ml-engine"
+set "BACKEND_DIR=%ROOT_DIR%\backend"
+set "FRONTEND_DIR=%ROOT_DIR%\frontend"
+
+set "ML_PORT=8000"
+set "BACKEND_PORT=8081"
+set "FRONTEND_PORT=5173"
+set "PG_PORT=5432"
+
+echo ============================================================================
+echo   SentinelPay AI - Starting Services
+echo   Project Root: %ROOT_DIR%
+echo ============================================================================
 echo.
 
-set "SCRIPT_DIR=%~dp0"
-cd /d "%SCRIPT_DIR%"
-
-:: Refresh PATH to discover node, npm, python, and postgresql
-set "PATH=%PATH%;%ProgramFiles%\nodejs;%LOCALAPPDATA%\Programs\Python\Python314\Scripts;%LOCALAPPDATA%\Programs\Python\Python314;%ProgramFiles%\PostgreSQL\19\bin"
-
-:: -----------------------------------------------------------------------------
-:: 1. CHECK POSTGRESQL SERVICE
-:: -----------------------------------------------------------------------------
-echo [*] Checking PostgreSQL service...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$svc = Get-Service *postgres* -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Running' }; if ($svc) { exit 0 } else { exit 1 }"
-
-if errorlevel 1 (
-    echo [ERROR] PostgreSQL service is not currently running!
-    echo         Please start the PostgreSQL Windows service before running SentinelPay AI.
-    echo.
-    pause
-    exit /b 1
+:: 1. Verify project directories
+if not exist "%ML_DIR%\main.py" (
+    echo [ERROR] ML Engine entry point not found at %ML_DIR%\main.py
+    goto :fail
 )
-echo [OK] PostgreSQL service is running.
+if not exist "%BACKEND_DIR%\pom.xml" (
+    echo [ERROR] Backend pom.xml not found at %BACKEND_DIR%\pom.xml
+    goto :fail
+)
+if not exist "%FRONTEND_DIR%\package.json" (
+    echo [ERROR] Frontend package.json not found at %FRONTEND_DIR%\package.json
+    goto :fail
+)
 
-:: -----------------------------------------------------------------------------
-:: 2. DETECT MAVEN EXECUTABLE
-:: -----------------------------------------------------------------------------
+:: 2. Detect required binaries
+echo [CHECK] Detecting runtime dependencies...
+
+call :check_tool java "Java JDK"
+if errorlevel 1 goto :fail
+
+call :check_tool python "Python"
+if errorlevel 1 goto :fail
+
+call :check_tool node "Node.js"
+if errorlevel 1 goto :fail
+
+call :check_tool npm "npm"
+if errorlevel 1 goto :fail
+
+:: Detect Maven across PATH, MAVEN_HOME, M2_HOME, or .m2 wrapper distributions
 set "MVN_CMD="
 where mvn >nul 2>&1
-if not errorlevel 1 (
-    set "MVN_CMD=mvn"
-) else if exist "%ProgramFiles%\JetBrains\IntelliJ IDEA 2026.2.2\plugins\maven-plugin\lib\maven3\bin\mvn.cmd" (
-    set "MVN_CMD=%ProgramFiles%\JetBrains\IntelliJ IDEA 2026.2.2\plugins\maven-plugin\lib\maven3\bin\mvn.cmd"
-) else if exist "%USERPROFILE%\.m2\wrapper\dists\apache-maven-3.9.16-bin\5grr65jo27hi51sujmtcldfovl\apache-maven-3.9.16\bin\mvn.cmd" (
-    set "MVN_CMD=%USERPROFILE%\.m2\wrapper\dists\apache-maven-3.9.16-bin\5grr65jo27hi51sujmtcldfovl\apache-maven-3.9.16\bin\mvn.cmd"
+if not errorlevel 1 set "MVN_CMD=mvn"
+
+if not defined MVN_CMD (
+    where mvn.cmd >nul 2>&1
+    if not errorlevel 1 set "MVN_CMD=mvn.cmd"
 )
 
-if "%MVN_CMD%"=="" (
-    echo [ERROR] Maven executable was not found on your system!
-    echo         Please install Apache Maven and add it to your system PATH.
-    echo.
-    pause
-    exit /b 1
-)
-echo [OK] Maven found: "%MVN_CMD%"
-
-:: -----------------------------------------------------------------------------
-:: 3. DETECT NODE.JS & NPM
-:: -----------------------------------------------------------------------------
-where node >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Node.js is not found in PATH!
-    echo         Please install Node.js LTS from https://nodejs.org/.
-    echo.
-    pause
-    exit /b 1
-)
-where npm >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] npm is not found in PATH!
-    echo         Please ensure npm is installed and added to your PATH.
-    echo.
-    pause
-    exit /b 1
-)
-echo [OK] Node.js and npm verified.
-
-:: -----------------------------------------------------------------------------
-:: 4. START FASTAPI ML ENGINE (PORT 8000)
-:: -----------------------------------------------------------------------------
-echo.
-echo [*] Checking FastAPI ML Engine (Port 8000)...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$c = Test-NetConnection -ComputerName localhost -Port 8000 -WarningAction SilentlyContinue; if ($c.TcpTestSucceeded) { exit 0 } else { exit 1 }"
-
-if not errorlevel 1 (
-    echo [INFO] Port 8000 is already active. Preserving existing FastAPI ML Engine process.
-) else (
-    echo [*] Starting FastAPI ML Engine in a new window...
-    if exist "%SCRIPT_DIR%ml-engine\.venv\Scripts\activate.bat" (
-        start "SentinelPay - FastAPI ML Engine [Port 8000]" /D "%SCRIPT_DIR%ml-engine" cmd /k "call "%SCRIPT_DIR%ml-engine\.venv\Scripts\activate.bat" && uvicorn main:app --host 0.0.0.0 --port 8000"
-    ) else if exist "%SCRIPT_DIR%.venv\Scripts\activate.bat" (
-        start "SentinelPay - FastAPI ML Engine [Port 8000]" /D "%SCRIPT_DIR%ml-engine" cmd /k "call "%SCRIPT_DIR%.venv\Scripts\activate.bat" && uvicorn main:app --host 0.0.0.0 --port 8000"
-    ) else (
-        start "SentinelPay - FastAPI ML Engine [Port 8000]" /D "%SCRIPT_DIR%ml-engine" cmd /k "uvicorn main:app --host 0.0.0.0 --port 8000"
+if not defined MVN_CMD (
+    if defined MAVEN_HOME (
+        if exist "%MAVEN_HOME%\bin\mvn.cmd" set "MVN_CMD=%MAVEN_HOME%\bin\mvn.cmd"
     )
 )
 
-:: -----------------------------------------------------------------------------
-:: 5. START SPRING BOOT BACKEND (PORT 8081)
-:: -----------------------------------------------------------------------------
-echo.
-echo [*] Checking Spring Boot Backend (Port 8081)...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$c = Test-NetConnection -ComputerName localhost -Port 8081 -WarningAction SilentlyContinue; if ($c.TcpTestSucceeded) { exit 0 } else { exit 1 }"
-
-if not errorlevel 1 (
-    echo [INFO] Port 8081 is already active. Preserving existing Spring Boot Backend process.
-) else (
-    echo [*] Starting Spring Boot Backend in a new window...
-    start "SentinelPay - Spring Boot Backend [Port 8081]" /D "%SCRIPT_DIR%backend" cmd /k ""%MVN_CMD%" spring-boot:run -Dspring-boot.run.arguments=--server.port=8081"
+if not defined MVN_CMD (
+    if defined M2_HOME (
+        if exist "%M2_HOME%\bin\mvn.cmd" set "MVN_CMD=%M2_HOME%\bin\mvn.cmd"
+    )
 )
 
-:: -----------------------------------------------------------------------------
-:: 6. START REACT FRONTEND (PORT 5173)
-:: -----------------------------------------------------------------------------
-echo.
-echo [*] Checking React Frontend (Port 5173)...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$c = Test-NetConnection -ComputerName localhost -Port 5173 -WarningAction SilentlyContinue; if ($c.TcpTestSucceeded) { exit 0 } else { exit 1 }"
-
-if not errorlevel 1 (
-    echo [INFO] Port 5173 is already active. Preserving existing React Frontend process.
-) else (
-    echo [*] Starting React Frontend in a new window...
-    start "SentinelPay - React Frontend [Port 5173]" /D "%SCRIPT_DIR%frontend" cmd /k "npm run dev"
+if not defined MVN_CMD (
+    if exist "%USERPROFILE%\.m2\wrapper\dists" (
+        for /f "delims=" %%F in ('dir /s /b "%USERPROFILE%\.m2\wrapper\dists\mvn.cmd" 2^>nul') do (
+            if not defined MVN_CMD if exist "%%F" set "MVN_CMD=%%F"
+        )
+    )
 )
 
-:: -----------------------------------------------------------------------------
-:: 7. VERIFY ALL SERVICES & LAUNCH BROWSER
-:: -----------------------------------------------------------------------------
-echo.
-echo [*] Waiting for FastAPI (8000), Spring Boot (8081), and React (5173) to become ready...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$ports = @(8000, 8081, 5173); $maxAttempts = 45; $attempt = 0; " ^
-    "while ($attempt -lt $maxAttempts) { " ^
-    "  $attempt++; $allUp = $true; " ^
-    "  foreach ($p in $ports) { " ^
-    "    try { $tc = New-Object System.Net.Sockets.TcpClient; $ok = $tc.ConnectAsync('127.0.0.1', $p).Wait(300); $tc.Close(); if (-not $ok) { $allUp = $false; break } } catch { $allUp = $false; break } " ^
-    "  } " ^
-    "  if ($allUp) { exit 0 } " ^
-    "  Start-Sleep -Seconds 1 " ^
-    "} " ^
-    "exit 1"
-
-if errorlevel 1 (
-    echo [WARN] One or more services did not respond within 45 seconds.
-    echo        Check the individual terminal windows for any startup errors.
+if not defined MVN_CMD (
     echo.
-    pause
+    echo [ERROR] Apache Maven [mvn] was not found on PATH or in standard Maven directories.
+    echo         Please install Apache Maven and add its bin folder to system PATH,
+    echo         or set the MAVEN_HOME environment variable.
+    goto :fail
+)
+
+echo [OK] All runtime dependencies verified.
+echo [INFO] Using Maven: %MVN_CMD%
+echo.
+
+:: 3. Check PostgreSQL on localhost:5432
+echo [CHECK] Verifying PostgreSQL availability on localhost:%PG_PORT%...
+call :check_port %PG_PORT%
+if errorlevel 1 (
+    echo.
+    echo [ERROR] PostgreSQL is not reachable on localhost:%PG_PORT%.
+    echo         The Spring Boot backend requires a running PostgreSQL instance.
+    echo         Database URL: jdbc:postgresql://localhost:5432/sentinelpay
+    echo         Please start your PostgreSQL service and try again.
+    goto :fail
+)
+echo [OK] PostgreSQL is reachable on port %PG_PORT%.
+echo.
+
+:: 4. Start Python ML Engine (FastAPI on port 8000)
+call :check_port %ML_PORT%
+if not errorlevel 1 (
+    echo [SKIP] ML Engine is already running on port %ML_PORT%.
+) else (
+    set "VENV_ACTIVATE="
+    if exist "%ML_DIR%\.venv\Scripts\activate.bat" set "VENV_ACTIVATE=%ML_DIR%\.venv\Scripts\activate.bat"
+    if not defined VENV_ACTIVATE if exist "%ML_DIR%\venv\Scripts\activate.bat" set "VENV_ACTIVATE=%ML_DIR%\venv\Scripts\activate.bat"
+    if not defined VENV_ACTIVATE if exist "%ROOT_DIR%\.venv\Scripts\activate.bat" set "VENV_ACTIVATE=%ROOT_DIR%\.venv\Scripts\activate.bat"
+    if not defined VENV_ACTIVATE if exist "%ROOT_DIR%\venv\Scripts\activate.bat" set "VENV_ACTIVATE=%ROOT_DIR%\venv\Scripts\activate.bat"
+
+    echo [START] Launching Python ML Engine on port %ML_PORT%...
+    if defined VENV_ACTIVATE (
+        echo [INFO] Activating virtual environment: %VENV_ACTIVATE%
+        start "SentinelPay ML Engine" cmd /k "cd /d "%ML_DIR%" && call "%VENV_ACTIVATE%" && python main.py"
+    ) else (
+        echo [INFO] No virtual environment folder found; using system Python.
+        start "SentinelPay ML Engine" cmd /k "cd /d "%ML_DIR%" && python main.py"
+    )
+)
+
+echo [WAIT] Waiting for ML Engine health endpoint [http://localhost:%ML_PORT%/health]...
+call :wait_http "http://localhost:%ML_PORT%/health" 45
+if errorlevel 1 (
+    echo.
+    echo [ERROR] ML Engine failed to respond on http://localhost:%ML_PORT%/health within 45s.
+    echo         Please inspect the "SentinelPay ML Engine" console window for error messages.
+    goto :fail
+)
+echo [OK] ML Engine is healthy.
+echo.
+
+:: 5. Start Spring Boot Backend (JAR or Maven on port 8081)
+call :check_port %BACKEND_PORT%
+if not errorlevel 1 (
+    echo [SKIP] Spring Boot Backend is already running on port %BACKEND_PORT%.
+) else (
+    set "BACKEND_JAR="
+    if exist "%BACKEND_DIR%\target\sentinelpay-backend-1.0.0.jar" set "BACKEND_JAR=%BACKEND_DIR%\target\sentinelpay-backend-1.0.0.jar"
+    if not defined BACKEND_JAR (
+        for %%J in ("%BACKEND_DIR%\target\*.jar") do (
+            if not defined BACKEND_JAR set "BACKEND_JAR=%%~fJ"
+        )
+    )
+
+    if defined BACKEND_JAR (
+        echo [START] Launching Spring Boot Backend via packaged JAR: !BACKEND_JAR!...
+        start "SentinelPay Backend" cmd /k "cd /d "%BACKEND_DIR%" && java -jar "!BACKEND_JAR!""
+    ) else (
+        echo [START] Launching Spring Boot Backend via Maven on port %BACKEND_PORT%...
+        start "SentinelPay Backend" cmd /k "cd /d "%BACKEND_DIR%" && "%MVN_CMD%" spring-boot:run"
+    )
+)
+
+echo [WAIT] Waiting for Spring Boot Backend on port %BACKEND_PORT%...
+call :wait_port %BACKEND_PORT% 90
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Spring Boot Backend did not start listening on port %BACKEND_PORT% within 90s.
+    echo         Please inspect the "SentinelPay Backend" console window for build or startup errors.
+    goto :fail
+)
+echo [OK] Spring Boot Backend is ready.
+echo.
+
+:: 6. Start React Frontend (Vite on port 5173)
+call :check_port %FRONTEND_PORT%
+if not errorlevel 1 (
+    echo [SKIP] React Frontend is already running on port %FRONTEND_PORT%.
+) else (
+    echo [START] Launching React Frontend on port %FRONTEND_PORT%...
+    start "SentinelPay Frontend" cmd /k "cd /d "%FRONTEND_DIR%" && npm run dev"
+)
+
+echo [WAIT] Waiting for React Frontend [http://localhost:%FRONTEND_PORT%]...
+call :wait_http "http://localhost:%FRONTEND_PORT%" 30
+if errorlevel 1 (
+    echo.
+    echo [ERROR] React Frontend did not respond on http://localhost:%FRONTEND_PORT% within 30s.
+    echo         Please inspect the "SentinelPay Frontend" console window for details.
+    goto :fail
+)
+echo [OK] React Frontend is ready.
+echo.
+
+:: 7. Launch browser
+echo ============================================================================
+echo   SentinelPay AI is running successfully!
+echo   - Frontend:  http://localhost:%FRONTEND_PORT%
+echo   - Backend:   http://localhost:%BACKEND_PORT%
+echo   - ML Engine: http://localhost:%ML_PORT%/health
+echo ============================================================================
+start "" "http://localhost:%FRONTEND_PORT%"
+goto :eof
+
+:: ============================================================================
+:: Subroutines
+:: ============================================================================
+
+:check_tool
+where %~1 >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] %~2 [%~1] was not found on system PATH.
+    echo         Please install %~2 and ensure it is included in your system PATH.
     exit /b 1
 )
+exit /b 0
 
-echo [OK] All services are listening! Opening http://localhost:5173 in default browser...
-start "" "http://localhost:5173"
+:check_port
+powershell -NoProfile -Command "$client = New-Object System.Net.Sockets.TcpClient; try { $client.Connect('127.0.0.1', %~1); $client.Close(); exit 0 } catch { exit 1 }" >nul 2>&1
+exit /b %errorlevel%
 
+:wait_port
+set /a "_p_elapsed=0"
+:_wait_port_loop
+call :check_port %~1
+if not errorlevel 1 exit /b 0
+if %_p_elapsed% GEQ %~2 exit /b 1
+timeout /t 2 /nobreak >nul
+set /a "_p_elapsed+=2"
+goto :_wait_port_loop
+
+:wait_http
+set /a "_h_elapsed=0"
+:_wait_http_loop
+where curl.exe >nul 2>&1
+if not errorlevel 1 (
+    curl.exe -s -f -o nul --connect-timeout 2 "%~1" >nul 2>&1
+    if not errorlevel 1 exit /b 0
+) else (
+    powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri '%~1' -UseBasicParsing -TimeoutSec 2; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 400) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+    if not errorlevel 1 exit /b 0
+)
+if %_h_elapsed% GEQ %~2 exit /b 1
+timeout /t 2 /nobreak >nul
+set /a "_h_elapsed+=2"
+goto :_wait_http_loop
+
+:fail
 echo.
-echo ===============================================================================
-echo SentinelPay AI services launched successfully!
-echo   - FastAPI ML Engine:    http://localhost:8000/health
-echo   - Spring Boot Backend:  http://localhost:8081/api/v1/transactions
-echo   - React UI Dashboard:   http://localhost:5173
-echo.
-echo Note: Logs remain active in their respective persistent terminal windows.
-echo To shut down all services gracefully, double-click 'stop-sentinelpay.bat'.
-echo ===============================================================================
-echo.
+echo ============================================================================
+echo   Startup aborted due to an error.
+echo ============================================================================
 pause
+exit /b 1

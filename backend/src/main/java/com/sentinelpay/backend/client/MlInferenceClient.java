@@ -33,40 +33,52 @@ public class MlInferenceClient {
     public MlPredictionResponse predict(TransactionRequest request) {
         log.debug("Sending transaction_id={} to FastAPI ML engine /api/v1/predict", request.transactionId());
 
-        try {
-            MlPredictionResponse response = webClient.post()
-                    .uri("/api/v1/predict")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(request)
-                    .retrieve()
-                    .bodyToMono(MlPredictionResponse.class)
-                    .timeout(timeout)
-                    .block();
+        int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                MlPredictionResponse response = webClient.post()
+                        .uri("/api/v1/predict")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(request)
+                        .retrieve()
+                        .bodyToMono(MlPredictionResponse.class)
+                        .timeout(timeout)
+                        .block();
 
-            validateResponse(response);
-            return response;
+                validateResponse(response);
+                return response;
 
-        } catch (WebClientResponseException ex) {
-            log.error("ML engine returned HTTP {} for transaction_id={}: {}",
-                    ex.getStatusCode(), request.transactionId(), ex.getResponseBodyAsString());
-            throw new MlServiceUnavailableException(
-                    "ML inference service returned error status: " + ex.getStatusCode(), ex
-            );
-        } catch (WebClientException ex) {
-            log.error("Failed to connect to ML engine for transaction_id={}: {}",
-                    request.transactionId(), ex.getMessage());
-            throw new MlServiceUnavailableException(
-                    "ML inference service is unreachable", ex
-            );
-        } catch (MlServiceUnavailableException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Unexpected error calling ML engine for transaction_id={}: {}",
-                    request.transactionId(), ex.getMessage());
-            throw new MlServiceUnavailableException(
-                    "ML inference failed: " + ex.getMessage(), ex
-            );
+            } catch (WebClientResponseException ex) {
+                log.error("ML engine returned HTTP {} for transaction_id={}: {}",
+                        ex.getStatusCode(), request.transactionId(), ex.getResponseBodyAsString());
+                throw new MlServiceUnavailableException(
+                        "ML inference service returned error status: " + ex.getStatusCode(), ex
+                );
+            } catch (WebClientException ex) {
+                log.warn("Attempt {}/{} failed to connect to ML engine for transaction_id={}: {}",
+                        attempt, maxAttempts, request.transactionId(), ex.getMessage());
+                if (attempt == maxAttempts) {
+                    throw new MlServiceUnavailableException(
+                            "ML inference service is unreachable after " + maxAttempts + " attempts: " + ex.getMessage(), ex
+                    );
+                }
+                try {
+                    Thread.sleep(500L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new MlServiceUnavailableException("Interrupted while waiting to retry ML engine", ie);
+                }
+            } catch (MlServiceUnavailableException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                log.error("Unexpected error calling ML engine for transaction_id={}: {}",
+                        request.transactionId(), ex.getMessage());
+                throw new MlServiceUnavailableException(
+                        "ML inference failed: " + ex.getMessage(), ex
+                );
+            }
         }
+        throw new MlServiceUnavailableException("ML inference service is unreachable");
     }
 
     private void validateResponse(MlPredictionResponse response) {
