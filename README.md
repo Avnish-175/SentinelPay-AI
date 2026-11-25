@@ -237,5 +237,22 @@ The dashboard will be available at `http://localhost:5173`.
 
 ---
 
+## ⚡ One-Click Startup & Shutdown (Windows)
+
+You can launch and stop the entire SentinelPay AI ecosystem (FastAPI, Spring Boot, React UI, and browser launch) with a single double-click.
+
+### 🚀 Starting the Project: `start-sentinelpay.bat`
+Double-click `start-sentinelpay.bat` in the project root. The script automatically:
+1. Verifies that the **PostgreSQL** Windows service is running.
+2. Checks for installed **Maven**, **Node.js**, and **npm**.
+3. Checks whether ports **8000**, **8081**, and **5173** are already occupied to avoid duplicate processes.
+4. Starts the **FastAPI ML Engine** (Port `8000`), **Spring Boot Backend** (Port `8081`), and **React Frontend** (Port `5173`) in dedicated persistent terminal windows so logs remain live and inspectable.
+5. Waits for the Vite server to become ready and automatically opens `http://localhost:5173` in your default browser.
+
+### 🛑 Stopping the Project: `stop-sentinelpay.bat`
+Double-click `stop-sentinelpay.bat` in the project root to gracefully terminate the listening processes on ports `8000`, `8081`, and `5173` and close the spawned service windows without affecting other processes.
+
+---
+
 ## 📄 License
 This project is open-source under the MIT License.
